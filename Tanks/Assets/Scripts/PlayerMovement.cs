@@ -4,49 +4,100 @@ using UnityEngine;
 
 public class PlayerMovement : MonoBehaviour {
 
-	public float accelSpeed = 10f;
-	public float maxSpeed = 12f;
-	public float accelTurnSpeed = 90f;
-	public float maxTurnSpeed = 180f;
+	public float motorForce;
+	public float maxSpeed;
+	public WheelCollider WheelColFR;
+	public WheelCollider WheelColFL;
+	public WheelCollider WheelColRR;
+	public WheelCollider WheelColRL;
+	public float steerForce;
+	public float maxSteerSpeed;
+	public float brakeForce;
 
-	private Rigidbody rb;
 	private float moveInput;
-	private float turnInput;
-	private string playerMoveAxis;
-	private string playerTurnAxis;
+	private float steerInput;
+	private Rigidbody rb;
 
-	void Awake()
+	// Use this for initialization
+	void Start ()
 	{
 		rb = GetComponent<Rigidbody>();
 	}
-
-	void Start ()
-	{
-		playerMoveAxis = "Move";
-		playerTurnAxis = "Turn";
-	}
-
-	void Update()
-	{
-		// get input
-		moveInput = Input.GetAxis(playerMoveAxis);
-		turnInput = Input.GetAxis(playerTurnAxis);
-	}
 	
+	// Update is called once per frame
+	void Update ()
+	{
+		moveInput = Input.GetAxis("Move");
+		steerInput = Input.GetAxis("Turn");
+	}
+
 	void FixedUpdate()
 	{
-		// Movement
 		Move();
 		Turn();
+		Brake();
+		LimitMovements();
 	}
 
 	void Move()
 	{
-		rb.AddForce(transform.forward * moveInput * accelSpeed);
+		float moveForce = moveInput * motorForce;
+
+		if (moveForce < 0) // rueckwaerts
+		{
+			WheelColFR.motorTorque = 0;
+			WheelColFL.motorTorque = 0;
+			WheelColRR.motorTorque = moveForce;
+			WheelColRL.motorTorque = moveForce;
+
+		}
+		else // forwaerts oder keine richtung
+		{
+			WheelColFR.motorTorque = moveForce;
+			WheelColFL.motorTorque = moveForce;
+			WheelColRR.motorTorque = 0;
+			WheelColRL.motorTorque = 0;
+		}
 	}
 
 	void Turn()
 	{
-		
+		float steerValue = steerInput * steerForce;
+
+		// add/subtract steer values to wheels
+		WheelColFL.motorTorque += steerValue;
+		WheelColRL.motorTorque += steerValue;
+		WheelColFR.motorTorque -= steerValue;
+		WheelColRR.motorTorque -= steerValue;
+
+//		Quaternion turnRotation = Quaternion.Euler(0f, steer, 0f);
+//
+//		rb.MoveRotation(rb.rotation * turnRotation);
+	}
+
+	void Brake()
+	{
+		if (moveInput == 0 && steerInput == 0)
+		{
+			WheelColFR.brakeTorque = brakeForce;
+			WheelColFL.brakeTorque = brakeForce;
+			WheelColRR.brakeTorque = brakeForce;
+			WheelColRL.brakeTorque = brakeForce;
+		}
+		else
+		{
+			WheelColFR.brakeTorque =0;
+			WheelColFL.brakeTorque =0;
+			WheelColRR.brakeTorque =0;
+			WheelColRL.brakeTorque =0;
+		}
+	}
+
+	void LimitMovements()
+	{
+		// limit movement speed
+		rb.velocity = Vector3.ClampMagnitude(rb.velocity, maxSpeed);
+
+		rb.maxAngularVelocity = maxSteerSpeed;
 	}
 }
